@@ -14,7 +14,7 @@ class Host:
         self.net_distance = net_distance
     def add_port(self, port):
         self.ports.append(port)
-        
+
 class Port:
     def __init__(self, number, protocol, state = '' , service = '', version = '', product = '', uptime = ''):
         self.number = number
@@ -25,6 +25,21 @@ class Port:
         self.product = product
         self.uptime = uptime
 
+dict host = {
+    'ip' = '',
+    'hostname' = '',
+    'ports' = []
+    }
+
+dict port = {
+    'number' = '',
+    'protocol' = '',
+    'state' = '',
+    'service = '',
+    'version' = '',
+    'product' = ''
+    }
+        
 def ImportNmapFromXML(xml_root):
     #Function parses host records from XML file and return list of Host objects
     file_hosts = []
@@ -55,6 +70,40 @@ def ImportNmapFromXML(xml_root):
             new_host.add_port(new_port)
         file_hosts.append(new_host)
     return file_hosts
+
+def parseXML(xml_root):
+    #Function parses host records from XML file and return list of Host objects
+    hosts = []
+    for host in xml_root.findall("./host"):
+        host_dict = {}
+        host_dict['ports'] = []
+        #Get IPv4 address
+        try:
+            host_dict['ip'] = host.find("./address[@addrtype='ipv4']").attrib['addr']
+        except:
+            host_dict['ip'] = ''
+        #Get hostname, if there is one
+        if host.find("./hostnames/hostname") is not None:
+            host_dict['hostname'] = host.find("./hostnames/hostname").attrib['name']    
+        else:
+            host_dict['hostname'] = ''
+
+        #Get ports
+        for port in host.findall("./ports/port"):
+            port_dict = {}
+            port_dict['number'] = port.attrib['portid']
+            port_dict['protocol'] = port.attrib['protocol']
+            port_dict['state'] = port.find('./state').attrib['state']
+
+            if port.find('./service') is not None:
+                port_dict['service'] = port.find('./service').attrib['name']
+                port_dict['version'] = port.find('./service').attrib['version'] if 'version' in port.attrib else ''
+                port_dict['product'] = port.find('./service').attrib['product'] if 'product' in port.attrib else ''
+            else:
+                port_dict['service'] =''; port_dict['version'] =''; port_dict['product']=''
+            host_dict['ports'].append(port_dict)
+        hosts.append(host_dict)
+    return hosts
 
 def nmapFromGNMAP(filename):
     #Function parses host records from GNMAP file and return list of Host objects
@@ -140,9 +189,15 @@ def saveToExcel(results):
     result_nmap = pandas.DataFrame(results["Closed"])
     result_nmap.to_excel(result_xl, "Closed")
     result_xl.save()
+	
+def saveToCSV(results):
+	return 0
 
-if __name__ == "__main__":
+def main():
     nmap_folder = './Sources'
     hosts = parseNmapFiles(nmap_folder)
     results = convertToDict(hosts)
     saveToExcel(results)
+	
+if __name__ == "__main__":
+	main()
